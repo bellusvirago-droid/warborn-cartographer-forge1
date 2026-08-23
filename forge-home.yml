@@ -1,0 +1,167 @@
+name: The Forge (home anvil) — compile the March on the Founder's own machine
+
+# For a Unity STUDENT or PERSONAL seat.
+# A student seat is activated by signing in to Unity Hub as a named user.
+# It yields no .ulf file and no serial, so the rented GitHub anvil can never
+# hold it. This order therefore runs on a runner installed on the Founder's
+# own computer, where Unity Hub is ALREADY signed in — the licence is simply
+# already there, on disk, and Unity opens without asking anything.
+#
+# Install once (see RUNNER.md beside this file), then never again.
+#
+# Requires one repository secret or variable:
+#   UNITY_EXE — full path to the Unity editor executable, e.g.
+#     C:\Program Files\Unity\Hub\Editor\6000.0.32f1\Editor\Unity.exe
+#     /Applications/Unity/Hub/Editor/6000.0.32f1/Unity.app/Contents/MacOS/Unity
+
+on:
+  workflow_dispatch:
+    inputs:
+      nonce:
+        description: The one-time word from the house
+        required: true
+      base:
+        description: The house's public address
+        required: true
+
+jobs:
+  forge:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Prepare the runner's workspace
+        uses: actions/checkout@v4
+
+      - name: Draw the project from the house
+        run: |
+          curl -sfL "${{ inputs.base }}/api/public/forge/project?nonce=${{ inputs.nonce }}" -o project.json
+          python3 - <<'PY'
+          import json, pathlib
+          roll = json.load(open('project.json'))
+          for f in roll['files']:
+              p = pathlib.Path(f['path'])
+              p.parent.mkdir(parents=True, exist_ok=True)
+              p.write_text(f['body'], encoding='utf-8')
+          stone = pathlib.Path('ProjectSettings/ProjectVersion.txt')
+          if not stone.exists():
+              stone.parent.mkdir(parents=True, exist_ok=True)
+              stone.write_text('m_EditorVersion: 6000.0.32f1' + chr(10), encoding='utf-8')
+          print(len(roll['files']), 'files laid down')
+          PY
+
+      - name: Lay the build rite into the project
+        run: |
+          mkdir -p Assets/Editor
+          cat > Assets/Editor/WarbornForgeBuild.cs <<'CS'
+          using UnityEditor;
+          using UnityEditor.Build.Reporting;
+          using UnityEngine;
+
+          public static class WarbornForgeBuild
+          {
+              public static void WebGL()
+              {
+                  var scenes = System.Array.ConvertAll(
+                      EditorBuildSettings.scenes, s => s.path);
+                  if (scenes.Length == 0)
+                  {
+                      var found = AssetDatabase.FindAssets("t:Scene");
+                      scenes = System.Array.ConvertAll(found, AssetDatabase.GUIDToAssetPath);
+                  }
+                  var options = new BuildPlayerOptions
+                  {
+                      scenes = scenes,
+                      locationPathName = "Build/WebGL",
+                      target = BuildTarget.WebGL,
+                      options = BuildOptions.None,
+                  };
+                  var report = BuildPipeline.BuildPlayer(options);
+                  var ok = report.summary.result == BuildResult.Succeeded;
+                  Debug.Log("Warborn forge result: " + report.summary.result);
+                  EditorApplication.Exit(ok ? 0 : 1);
+              }
+          }
+          CS
+
+      - name: Open it in the Founder's own Unity
+        id: build
+        continue-on-error: true
+        run: |
+          "$UNITY_EXE" \
+            -batchmode -nographics -quit \
+            -projectPath "$(pwd)" \
+            -buildTarget WebGL \
+            -executeMethod WarbornForgeBuild.WebGL \
+            -logFile "$(pwd)/Logs/Build.log"
+        env:
+          UNITY_EXE: ${{ secrets.UNITY_EXE || vars.UNITY_EXE }}
+
+      - name: Keep the body as an artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebGL
+          path: Build/WebGL
+
+      - name: Lay the body in the repository
+        if: steps.build.outcome == 'success'
+        run: |
+          git config user.name "The Forge"
+          git config user.email "forge@warbornblades.com"
+          git add -f Build/WebGL
+          git commit -m "The Forge: a new body for the March" || echo "nothing new to lay down"
+          git push || echo "the push was refused"
+
+      - name: Carry the compiler's words home
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, json, os, re, time, urllib.request
+          log = ''
+          for name in ('Logs/Build.log', 'build.log', *sorted(glob.glob('**/*.log', recursive=True))):
+              if os.path.exists(name):
+                  text = open(name, errors='ignore').read()
+                  if text.strip():
+                      log = text
+                      break
+          if not log:
+              log = 'No build log was written. The runner never reached the compiler.'
+          faults = []
+          for m in re.finditer(r'^(.*?\.cs)\((\d+),\d+\): error (CS\d+): (.*)$', log, re.M):
+              faults.append({
+                  'path': m.group(1).split('TheMarch/')[-1],
+                  'line': int(m.group(2)),
+                  'rule': m.group(3),
+                  'word': m.group(4).strip(),
+              })
+          passed = os.environ.get('OUTCOME') == 'success' and not faults
+          body = json.dumps({
+              'nonce': os.environ['NONCE'],
+              'passed': passed,
+              'runUrl': os.environ['RUN_URL'],
+              'log': log[-30000:],
+              'faults': faults[:200],
+          }).encode()
+          for attempt in range(4):
+              try:
+                  req = urllib.request.Request(
+                      os.environ['BASE'] + '/api/public/forge/report',
+                      data=body,
+                      headers={'Content-Type': 'application/json', 'User-Agent': 'Warborn-Forge-Runner/1.0'},
+                      method='POST')
+                  print(urllib.request.urlopen(req, timeout=60).read().decode())
+                  break
+              except Exception as err:
+                  print('report attempt', attempt + 1, 'failed:', err)
+                  time.sleep(5 * (attempt + 1))
+          else:
+              print('The house never took the report.')
+          PY
+        env:
+          NONCE: ${{ inputs.nonce }}
+          BASE: ${{ inputs.base }}
+          OUTCOME: ${{ steps.build.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
