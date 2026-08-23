@@ -1,19 +1,5 @@
 name: The Forge (home anvil) — compile the March on the Founder's own machine
 
-# For a Unity STUDENT or PERSONAL seat.
-# A student seat is activated by signing in to Unity Hub as a named user.
-# It yields no .ulf file and no serial, so the rented GitHub anvil can never
-# hold it. This order therefore runs on a runner installed on the Founder's
-# own computer, where Unity Hub is ALREADY signed in — the licence is simply
-# already there, on disk, and Unity opens without asking anything.
-#
-# Install once (see RUNNER.md beside this file), then never again.
-#
-# Requires one repository secret or variable:
-#   UNITY_EXE — full path to the Unity editor executable, e.g.
-#     C:\Program Files\Unity\Hub\Editor\6000.0.32f1\Editor\Unity.exe
-#     /Applications/Unity/Hub/Editor/6000.0.32f1/Unity.app/Contents/MacOS/Unity
-
 on:
   workflow_dispatch:
     inputs:
@@ -38,20 +24,7 @@ jobs:
       - name: Draw the project from the house
         run: |
           curl -sfL "${{ inputs.base }}/api/public/forge/project?nonce=${{ inputs.nonce }}" -o project.json
-          python - <<'PY'
-
-          import json, pathlib
-          roll = json.load(open('project.json'))
-          for f in roll['files']:
-              p = pathlib.Path(f['path'])
-              p.parent.mkdir(parents=True, exist_ok=True)
-              p.write_text(f['body'], encoding='utf-8')
-          stone = pathlib.Path('ProjectSettings/ProjectVersion.txt')
-          if not stone.exists():
-              stone.parent.mkdir(parents=True, exist_ok=True)
-              stone.write_text('m_EditorVersion: 6000.0.32f1' + chr(10), encoding='utf-8')
-          print(len(roll['files']), 'files laid down')
-          PY
+          node scripts/forge-draw.js
 
       - name: Lay the build rite into the project
         run: |
@@ -119,49 +92,7 @@ jobs:
       - name: Carry the compiler's words home
         if: always()
         run: |
-         python - <<'PY'
-
-          import glob, json, os, re, time, urllib.request
-          log = ''
-          for name in ('Logs/Build.log', 'build.log', *sorted(glob.glob('**/*.log', recursive=True))):
-              if os.path.exists(name):
-                  text = open(name, errors='ignore').read()
-                  if text.strip():
-                      log = text
-                      break
-          if not log:
-              log = 'No build log was written. The runner never reached the compiler.'
-          faults = []
-          for m in re.finditer(r'^(.*?\.cs)\((\d+),\d+\): error (CS\d+): (.*)$', log, re.M):
-              faults.append({
-                  'path': m.group(1).split('TheMarch/')[-1],
-                  'line': int(m.group(2)),
-                  'rule': m.group(3),
-                  'word': m.group(4).strip(),
-              })
-          passed = os.environ.get('OUTCOME') == 'success' and not faults
-          body = json.dumps({
-              'nonce': os.environ['NONCE'],
-              'passed': passed,
-              'runUrl': os.environ['RUN_URL'],
-              'log': log[-30000:],
-              'faults': faults[:200],
-          }).encode()
-          for attempt in range(4):
-              try:
-                  req = urllib.request.Request(
-                      os.environ['BASE'] + '/api/public/forge/report',
-                      data=body,
-                      headers={'Content-Type': 'application/json', 'User-Agent': 'Warborn-Forge-Runner/1.0'},
-                      method='POST')
-                  print(urllib.request.urlopen(req, timeout=60).read().decode())
-                  break
-              except Exception as err:
-                  print('report attempt', attempt + 1, 'failed:', err)
-                  time.sleep(5 * (attempt + 1))
-          else:
-              print('The house never took the report.')
-          PY
+          node scripts/forge-report.js
         env:
           NONCE: ${{ inputs.nonce }}
           BASE: ${{ inputs.base }}
