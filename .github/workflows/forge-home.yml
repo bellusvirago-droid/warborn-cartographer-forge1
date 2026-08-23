@@ -38,7 +38,8 @@ jobs:
       - name: Draw the project from the house
         run: |
           curl -sfL "${{ inputs.base }}/api/public/forge/project?nonce=${{ inputs.nonce }}" -o project.json
-          python3 - <<'PY'
+          python - <<'PY'
+
           import json, pathlib
           roll = json.load(open('project.json'))
           for f in roll['files']:
@@ -118,7 +119,8 @@ jobs:
       - name: Carry the compiler's words home
         if: always()
         run: |
-          python3 - <<'PY'
+         python - <<'PY'
+
           import glob, json, os, re, time, urllib.request
           log = ''
           for name in ('Logs/Build.log', 'build.log', *sorted(glob.glob('**/*.log', recursive=True))):
