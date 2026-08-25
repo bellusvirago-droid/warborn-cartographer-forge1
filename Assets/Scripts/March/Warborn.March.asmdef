@@ -1,0 +1,27 @@
+{
+    "name": "Warborn.March",
+    "rootNamespace": "WarbornMarch",
+    "references": [
+        "UnityEngine.CoreModule",
+        "UnityEngine.AudioModule",
+        "UnityEngine.AnimationModule",
+        "UnityEngine.ParticleSystemModule",
+        "UnityEngine.PhysicsModule",
+        "UnityEngine.TerrainModule",
+        "UnityEngine.TerrainPhysicsModule",
+        "UnityEngine.UI",
+        "UnityEngine.UnityWebRequestModule",
+        "UnityEngine.JSONSerializeModule",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
