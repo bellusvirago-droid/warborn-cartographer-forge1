@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using Warborn.Builder;
 
 /// <summary>
 /// RAISE THE BODY — the one door the cloud runner knocks on before it compiles.
@@ -31,8 +32,8 @@ public static class RaiseTheBody
     {
         Debug.Log("[RaiseTheBody] Drawing the Sundered Ford before the compiler sees it.");
 
-        // 1. Draw the field. FordRaise saves the scene to ScenePath itself.
-        FordRaise.Raise();
+        // 1. Draw the field. FordBuilder saves the scene to ScenePath itself.
+        FordBuilder.BuildHeadless();
 
         // 2. Prove something actually stands in it. An empty scene compiled
         //    into a player is the worst kind of green build: it passes, and it
