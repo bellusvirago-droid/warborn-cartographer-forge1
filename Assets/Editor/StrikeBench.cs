@@ -199,7 +199,6 @@ public static class StrikeBench
         string report;
         int failed = Walk(out report);
         Debug.Log(report);
-        Console.WriteLine(report);
-        EditorApplication.Exit(failed == 0 ? 0 : 1);
+                EditorApplication.Exit(failed == 0 ? 0 : 1);
     }
 }

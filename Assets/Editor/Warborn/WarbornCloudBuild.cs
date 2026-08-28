@@ -6,8 +6,8 @@ using UnityEngine;
 namespace Warborn.Builder
 {
     /// <summary>
-    /// THE RAISING BEFORE THE BUILD. This is called by the forge runner, in
-    /// order, before BuildPipeline.BuildPlayer — never as a build callback.
+    /// THE RAISING BEFORE THE BUILD. Called by the forge runner, in order,
+    /// before BuildPipeline.BuildPlayer — never as a build callback.
     /// A callback that throws kills the build; this one only reports, so the
     /// compiler's own words always reach the house.
     /// </summary>
